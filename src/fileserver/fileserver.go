@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -20,6 +21,7 @@ const (
 	DOWNLOAD_PREFIX = "download/"
 	UPLOAD_PREFIX   = "upload/"
 	LOGIN_PREFIX    = "login/"
+	SIGNUP_PREFIX   = "signup/"
 	PORT            = 8080
 )
 
@@ -28,6 +30,14 @@ var (
 	CURRENT_USER user
 	USERS        []user
 )
+
+type userNotFoundError struct {
+	userName string
+}
+
+func (err *userNotFoundError) Error() string {
+	return err.userName + " does not exist"
+}
 
 type user struct {
 	Username string
@@ -81,6 +91,32 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func signupHandler(w http.ResponseWriter, r *http.Request) {
+	// TODO: extract function
+	body, _ := ioutil.ReadAll(r.Body)
+	var newUser user
+
+	err := json.Unmarshal(body, &newUser)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	_, e := getUser(newUser.Username)
+	if e == nil {
+		fmt.Fprintf(w, "User "+newUser.Username+" exists")
+		return
+	}
+	configFile := loadConfiguration()
+	newUsersArray := append(configFile.Users, newUser)
+	configFile.Users = newUsersArray
+
+	jsonConfiguration, err := json.Marshal(configFile)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	ioutil.WriteFile("config.json", jsonConfiguration, 0777)
+}
+
 func delHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO
 	return
@@ -118,21 +154,39 @@ func hasAccess() bool {
 }
 
 func loginUser(u user) bool {
-	for i := 0; i < len(USERS); i++ {
-		if (USERS[i].Username == u.Username) && (USERS[i].Password == u.Password) {
-			CURRENT_USER = u
-			return true
-		}
+	user, err := getUser(u.Username)
+	if err != nil {
+		fmt.Println(err.Error())
+		return false
 	}
+
+	if user.Password == u.Password {
+		CURRENT_USER = user
+		return true
+	}
+
 	return false
 }
 
-func loadConfiguration() {
+func getUser(userName string) (user, error) {
+	var u user
+	for _, user := range USERS {
+		if user.Username == userName {
+			u = user
+			return u, nil
+		}
+	}
+	var err = new(userNotFoundError)
+	return u, err
+}
+
+func loadConfiguration() configFile {
 	path, _ := os.Getwd()
 	file, err := os.Open(path + string(os.PathSeparator) + "config.json")
+	defer file.Close()
 	if err != nil {
 		fmt.Println(err.Error())
-		panic(fmt.Sprintf("%s", "Failed to load configuration!"))
+		log.Fatal("Failed to load configuration!")
 	}
 
 	var buffer bytes.Buffer
@@ -143,27 +197,25 @@ func loadConfiguration() {
 	err = json.Unmarshal(buffer.Bytes(), &configFile)
 	if err != nil {
 		fmt.Println(err.Error())
-		panic(fmt.Sprintf("%s", "Configuration file is corrupt!"))
-	} else {
-		configuration := configFile.Config
-		USERS = configFile.Users
-		applyConfiguration(configuration)
+		log.Fatal("Configuration file is corrupt!")
 	}
+	return configFile
 }
 
 func applyConfiguration(config configuration) {
 	ROOT_DIR = config.RootDir
 }
 
-func initServer() *pat.PatternServeMux {
+func initServer() http.Handler {
 	server := pat.New()
 	server.Get(API_PREFIX+DOWNLOAD_PREFIX, http.HandlerFunc(downloadHandler))
 
-	secondaryServer := pat.New()
-	secondaryServer.Post(API_PREFIX+POST_PREFIX+UPLOAD_PREFIX, http.HandlerFunc(uploadHandler))
-	secondaryServer.Post(API_PREFIX+POST_PREFIX+LOGIN_PREFIX, http.HandlerFunc(loginHandler))
+	secondaryHandler := pat.New()
+	secondaryHandler.Post(API_PREFIX+POST_PREFIX+UPLOAD_PREFIX, http.HandlerFunc(uploadHandler))
+	secondaryHandler.Post(API_PREFIX+POST_PREFIX+LOGIN_PREFIX, http.HandlerFunc(loginHandler))
+	secondaryHandler.Post(API_PREFIX+POST_PREFIX+SIGNUP_PREFIX, http.HandlerFunc(signupHandler))
 
-	server.Post(API_PREFIX+POST_PREFIX, secondaryServer)
+	server.Post(API_PREFIX+POST_PREFIX, secondaryHandler)
 	// TODO, DELETE_PREFIX maybe?
 	server.Del(API_PREFIX+DOWNLOAD_PREFIX, http.HandlerFunc(delHandler))
 
@@ -171,12 +223,16 @@ func initServer() *pat.PatternServeMux {
 }
 
 func main() {
-	loadConfiguration()
-	server := initServer()
+	// init configuration
+	configFile := loadConfiguration()
+	configuration := configFile.Config
+	USERS = configFile.Users
+	applyConfiguration(configuration)
+
 	// host client
 	http.Handle("/", http.FileServer(http.Dir(".."+string(os.PathSeparator)+"client")))
 	// handle file requests
-	http.Handle(API_PREFIX, server)
+	http.Handle(API_PREFIX, initServer())
 	//start listening
 	http.ListenAndServe(":"+strconv.Itoa(PORT), nil)
 }

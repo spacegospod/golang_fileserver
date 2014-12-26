@@ -1,11 +1,1 @@
-{
-    "config": {
-		"rootDir": "root"
-	},
-	"users": [
-		{
-			"username": "stoyo",
-			"password": "123"
-		}
-	]
-}
+{"config":{"rootDir":"root"},"users":[{"Username":"stoyo","Password":"123"},{"Username":"babameca","Password":"666"}]}

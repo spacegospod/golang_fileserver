@@ -35,4 +35,13 @@ window.onload = function() {
             req.open("post", "/api/post/login/"+username, true);
             req.send('{"username":"'+username+'","password":"'+password+'"}');
 	});
+	
+	var signupButton = document.getElementById('signupButton');
+	signupButton.addEventListener("click", function(e) {	
+			username = document.getElementById('username').value;
+			password = document.getElementById('password').value;
+			var req = new XMLHttpRequest();
+            req.open("post", "/api/post/signup/"+username, true);
+            req.send('{"username":"'+username+'","password":"'+password+'"}');
+	});
 };
