@@ -44,4 +44,12 @@ window.onload = function() {
             req.open("post", "/api/post/signup/"+username, true);
             req.send('{"username":"'+username+'","password":"'+password+'"}');
 	});
+	
+	var deleteButton = document.getElementById('deleteButton');
+	deleteButton.addEventListener("click", function(e) {
+		var fileName = document.getElementById('downloadName').value;
+		var req = new XMLHttpRequest();
+        req.open("delete", "/api/delete/"+fileName, true);
+        req.send();
+	});
 };

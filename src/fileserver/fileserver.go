@@ -18,6 +18,7 @@ import (
 const (
 	API_PREFIX      = "/api/"
 	POST_PREFIX     = "post/"
+	DELETE_PREFIX   = "delete/"
 	DOWNLOAD_PREFIX = "download/"
 	UPLOAD_PREFIX   = "upload/"
 	LOGIN_PREFIX    = "login/"
@@ -31,6 +32,7 @@ var (
 	USERS        []user
 )
 
+/* --- types --- */
 type userNotFoundError struct {
 	userName string
 }
@@ -53,7 +55,8 @@ type configuration struct {
 	RootDir string `json:"rootDir"`
 }
 
-/* HTTP handlers */
+/* --- HTTP handlers --- */
+
 func downloadHandler(w http.ResponseWriter, r *http.Request) {
 	fileName := strings.Replace(r.URL.String(), API_PREFIX+DOWNLOAD_PREFIX, "", 1)
 	serveFileForDownload(w, r, fileName)
@@ -101,28 +104,21 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err.Error())
 	}
 
-	_, e := getUser(newUser.Username)
-	if e == nil {
+	e := signupUser(newUser)
+	if e != nil {
 		fmt.Fprintf(w, "User "+newUser.Username+" exists")
-		return
 	}
-	configFile := loadConfiguration()
-	newUsersArray := append(configFile.Users, newUser)
-	configFile.Users = newUsersArray
-
-	jsonConfiguration, err := json.Marshal(configFile)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	ioutil.WriteFile("config.json", jsonConfiguration, 0777)
 }
 
 func delHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO
+	fileName := strings.Replace(r.URL.String(), API_PREFIX+DELETE_PREFIX, "", 1)
+	err := os.Remove(ROOT_DIR + string(os.PathSeparator) + fileName)
+	if err != nil {
+		fmt.Fprintf(w, err.Error())
+	}
 	return
 }
 
-/* move to another source file? */
 func uploadFileToServer(file multipart.File, header *multipart.FileHeader) (err error) {
 	os.Mkdir(ROOT_DIR, 0777)
 	out, err := os.Create(ROOT_DIR + string(os.PathSeparator) + header.Filename)
@@ -180,6 +176,24 @@ func getUser(userName string) (user, error) {
 	return u, err
 }
 
+func signupUser(newUser user) error {
+	_, e := getUser(newUser.Username)
+	if e == nil {
+		return e
+	}
+	configFile := loadConfiguration()
+	newUsersArray := append(configFile.Users, newUser)
+	configFile.Users = newUsersArray
+
+	jsonConfiguration, err := json.Marshal(configFile)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	ioutil.WriteFile("config.json", jsonConfiguration, 0777)
+	USERS = newUsersArray
+	return nil
+}
+
 func loadConfiguration() configFile {
 	path, _ := os.Getwd()
 	file, err := os.Open(path + string(os.PathSeparator) + "config.json")
@@ -216,8 +230,7 @@ func initServer() http.Handler {
 	secondaryHandler.Post(API_PREFIX+POST_PREFIX+SIGNUP_PREFIX, http.HandlerFunc(signupHandler))
 
 	server.Post(API_PREFIX+POST_PREFIX, secondaryHandler)
-	// TODO, DELETE_PREFIX maybe?
-	server.Del(API_PREFIX+DOWNLOAD_PREFIX, http.HandlerFunc(delHandler))
+	server.Del(API_PREFIX+DELETE_PREFIX, http.HandlerFunc(delHandler))
 
 	return server
 }
