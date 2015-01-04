@@ -41,6 +41,14 @@ func (err *userNotFoundError) Error() string {
 	return err.userName + " does not exist"
 }
 
+type userExistsError struct {
+	userName string
+}
+
+func (err *userExistsError) Error() string {
+	return "User " + err.userName + " is already registered!"
+}
+
 type user struct {
 	Username string
 	Password string
@@ -55,8 +63,16 @@ type configuration struct {
 	RootDir string `json:"rootDir"`
 }
 
-/* --- HTTP handlers --- */
+type fileInfo struct {
+	Name string `json:name`
+	Size int64  `json:size`
+}
 
+type dirInfo struct {
+	Files []fileInfo `json:files`
+}
+
+/* --- HTTP handlers --- */
 func downloadHandler(w http.ResponseWriter, r *http.Request) {
 	fileName := strings.Replace(r.URL.String(), API_PREFIX+DOWNLOAD_PREFIX, "", 1)
 	serveFileForDownload(w, r, fileName)
@@ -74,7 +90,17 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			fmt.Fprintln(w, err.Error())
 		} else {
-			fmt.Fprintf(w, "File uploaded successfully")
+			dirInfo, e := readDirectory(ROOT_DIR)
+			if e != nil {
+				fmt.Fprintf(w, e.Error())
+			} else {
+				jsonDirInfo, err := json.Marshal(dirInfo)
+				if err != nil {
+					log.Print(err.Error())
+				} else {
+					fmt.Fprintf(w, string(jsonDirInfo))
+				}
+			}
 		}
 	}
 	return
@@ -90,7 +116,18 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !loginUser(u) {
-		fmt.Fprintf(w, "Invalid username or password")
+		fmt.Fprintf(w, "failed&Invalid username or password")
+	} else {
+		dirInfo, e := readDirectory(ROOT_DIR)
+		if e != nil {
+			fmt.Fprintf(w, "failed&"+e.Error())
+		} else {
+			jsonDirInfo, err := json.Marshal(dirInfo)
+			if err != nil {
+				log.Print(err.Error())
+			}
+			fmt.Fprintf(w, "success&"+string(jsonDirInfo))
+		}
 	}
 }
 
@@ -106,7 +143,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 
 	e := signupUser(newUser)
 	if e != nil {
-		fmt.Fprintf(w, "User "+newUser.Username+" exists")
+		fmt.Fprintf(w, e.Error())
 	}
 }
 
@@ -115,6 +152,18 @@ func delHandler(w http.ResponseWriter, r *http.Request) {
 	err := os.Remove(ROOT_DIR + string(os.PathSeparator) + fileName)
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
+	} else {
+		dirInfo, e := readDirectory(ROOT_DIR)
+		if e != nil {
+			fmt.Fprintf(w, e.Error())
+		} else {
+			jsonDirInfo, err := json.Marshal(dirInfo)
+			if err != nil {
+				log.Print(err.Error())
+			} else {
+				fmt.Fprintf(w, string(jsonDirInfo))
+			}
+		}
 	}
 	return
 }
@@ -142,6 +191,29 @@ func serveFileForDownload(w http.ResponseWriter, r *http.Request, fileName strin
 	if hasAccess() {
 		http.ServeFile(w, r, ROOT_DIR+string(os.PathSeparator)+fileName)
 	}
+}
+
+func readDirectory(dirName string) (*dirInfo, error) {
+	files, err := ioutil.ReadDir(dirName)
+	var directoryInfo *dirInfo
+	if err != nil {
+		return directoryInfo, err
+	}
+
+	var fileInfos []fileInfo
+	for _, finfo := range files {
+		if !finfo.IsDir() {
+			var fileInfo = new(fileInfo)
+			fileInfo.Name = finfo.Name()
+			fileInfo.Size = finfo.Size()
+			fileInfos = append(fileInfos, *fileInfo)
+		}
+	}
+
+	directoryInfo = new(dirInfo)
+	directoryInfo.Files = fileInfos
+
+	return directoryInfo, nil
 }
 
 func hasAccess() bool {
@@ -173,13 +245,16 @@ func getUser(userName string) (user, error) {
 		}
 	}
 	var err = new(userNotFoundError)
+	err.userName = userName
 	return u, err
 }
 
 func signupUser(newUser user) error {
 	_, e := getUser(newUser.Username)
 	if e == nil {
-		return e
+		var err = new(userExistsError)
+		err.userName = newUser.Username
+		return err
 	}
 	configFile := loadConfiguration()
 	newUsersArray := append(configFile.Users, newUser)

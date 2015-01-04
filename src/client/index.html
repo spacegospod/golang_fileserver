@@ -4,23 +4,25 @@
 	<script src="script.js"></script>
 </head>
 <body>
-<!--
-	<input type="file" id="fileSelector" name="uploadfile"/>
-	<input type="button" id="uploadButton" value="upload"/>
--->
 	<input type="text" id="username">
 	<input type="text" id="password">
 	<input type="button" id="loginButton" value="login"/>
 	<input type="button" id="signupButton" value="signup"/>
 	<br/>
-	<input type="text" id="downloadName">
-	<input type="button" id="downloadButton" value="download"/>
-	<input type="button" id="deleteButton" value="delete"/>
 	
-	<form action="/api/post/upload/" method="post" enctype="multipart/form-data">
+	<div id="tablediv">
+		<table border="1" id="table">
+			<tr>
+				<th>Filename</th>
+				<th>Size(kb)</th>
+			</tr>
+		</table>
+	</div>
+	
+	<form action="/api/post/upload/" method="post" enctype="multipart/form-data" id="uploadForm">
 		<label for="file">Filename:</label>
 		<input type="file" name="file" id="file">
-		<input type="submit" name="submit" value="Submit">
+		<input type="submit" name="submit" value="upload">
 	</form>
 </body>
 </html>
