@@ -2,6 +2,22 @@ window.onload = function() {
 	var uploadForm = document.getElementById('uploadForm');
 	uploadForm.addEventListener("submit", function(e) {
 		e.preventDefault();
+		var fileSelect = document.getElementById('file');
+		var file = fileSelect.files[0];
+		
+		var formData = new FormData();
+		formData.append("file", file, file.name);
+		
+		var req = new XMLHttpRequest();
+		req.open('post', "/api/post/upload/", true);
+		req.onreadystatechange = function() {
+			if (req.readyState == 4) {
+				var dirInfo = JSON.parse(req.responseText);
+				updateTable(dirInfo);
+			}
+		}
+		
+		req.send(formData);
 	});
 	
 	var loginButton = document.getElementById('loginButton');
@@ -10,7 +26,6 @@ window.onload = function() {
 			password = document.getElementById('password').value;
 			var req = new XMLHttpRequest();
             req.open("post", "/api/post/login/"+username, true);
-            req.send('{"username":"'+username+'","password":"'+password+'"}');
 			req.onreadystatechange = function() {
 	    		if (req.readyState == 4 && req.responseText != "") {
 	        		var resp = req.responseText.split('&');
@@ -22,6 +37,7 @@ window.onload = function() {
 					}
 	   			}
 			}
+			req.send('{"username":"'+username+'","password":"'+password+'"}');
 	});
 	
 	var signupButton = document.getElementById('signupButton');
@@ -30,37 +46,37 @@ window.onload = function() {
 			password = document.getElementById('password').value;
 			var req = new XMLHttpRequest();
             req.open("post", "/api/post/signup/"+username, true);
-            req.send('{"username":"'+username+'","password":"'+password+'"}');
 			req.onreadystatechange = function() {
 	    		if (req.readyState == 4 && req.responseText != "") {
 					alert(req.responseText);
 				}
 			}
+			req.send('{"username":"'+username+'","password":"'+password+'"}');
 	});
 	
 	function downloadHandler(e) {
 		var fileName = e.target.parentNode.parentNode.childNodes[0].childNodes[0].wholeText;
 		var req = new XMLHttpRequest();
         req.open("get", "/api/download/"+fileName, true);
-        req.send();
 		req.onreadystatechange = function() {
     		if (req.readyState == 4) {
         		window.location = document.URL + "/api/download/" + fileName;
    			}
 		}
+		req.send();
 	}
 		
 	function deleteHandler(e) {
 		var fileName = e.target.parentNode.parentNode.childNodes[0].childNodes[0].wholeText;
 		var req = new XMLHttpRequest();
         req.open("delete", "/api/delete/"+fileName, true);
-        req.send();
 		req.onreadystatechange = function() {
 			if (req.readyState == 4) {
 				var dirInfo = JSON.parse(req.responseText);
 				updateTable(dirInfo);
 			}
 		}
+		req.send();
 	}
 	
 	function updateTable(dirInfo) {
