@@ -28,7 +28,7 @@ const (
 
 var (
 	ROOT_DIR     string = "root"
-	CURRENT_USER user
+	LOGGED_USERS []user
 	USERS        []user
 )
 
@@ -74,8 +74,12 @@ type dirInfo struct {
 
 /* --- HTTP handlers --- */
 func downloadHandler(w http.ResponseWriter, r *http.Request) {
-	fileName := strings.Replace(r.URL.String(), API_PREFIX+DOWNLOAD_PREFIX, "", 1)
-	serveFileForDownload(w, r, fileName)
+	parameters := strings.Split(strings.Replace(r.URL.String(), API_PREFIX+DOWNLOAD_PREFIX, "", 1), "&")
+	userName := strings.Split(parameters[0], "=")[1]
+	fileName := parameters[1]
+	if hasAccess(userName) {
+		serveFileForDownload(w, r, fileName)
+	}
 	return
 }
 
@@ -188,9 +192,7 @@ func uploadFileToServer(file multipart.File, header *multipart.FileHeader) (err 
 }
 
 func serveFileForDownload(w http.ResponseWriter, r *http.Request, fileName string) {
-	if hasAccess() {
-		http.ServeFile(w, r, ROOT_DIR+string(os.PathSeparator)+fileName)
-	}
+	http.ServeFile(w, r, ROOT_DIR+string(os.PathSeparator)+fileName)
 }
 
 func readDirectory(dirName string) (*dirInfo, error) {
@@ -216,9 +218,13 @@ func readDirectory(dirName string) (*dirInfo, error) {
 	return directoryInfo, nil
 }
 
-func hasAccess() bool {
-	// TODO
-	return true
+func hasAccess(username string) bool {
+	for _, user := range LOGGED_USERS {
+		if user.Username == username {
+			return true
+		}
+	}
+	return false
 }
 
 func loginUser(u user) bool {
@@ -229,7 +235,16 @@ func loginUser(u user) bool {
 	}
 
 	if user.Password == u.Password {
-		CURRENT_USER = user
+		// prevent duplication
+		var userLogged bool = false
+		for _, user := range LOGGED_USERS {
+			if user.Username == user.Username {
+				userLogged = true
+			}
+		}
+		if !userLogged {
+			LOGGED_USERS = append(LOGGED_USERS, user)
+		}
 		return true
 	}
 

@@ -1,4 +1,6 @@
 window.onload = function() {
+	var USER_NAME = "";
+	
 	var uploadForm = document.getElementById('uploadForm');
 	uploadForm.addEventListener("submit", function(e) {
 		e.preventDefault();
@@ -34,6 +36,7 @@ window.onload = function() {
 					} else if (resp[0] == "success") {
 						var dirInfo = JSON.parse(resp[1]);
 						updateTable(dirInfo);
+						USER_NAME = username;
 					}
 	   			}
 			}
@@ -57,10 +60,10 @@ window.onload = function() {
 	function downloadHandler(e) {
 		var fileName = e.target.parentNode.parentNode.childNodes[0].childNodes[0].wholeText;
 		var req = new XMLHttpRequest();
-        req.open("get", "/api/download/"+fileName, true);
+        req.open("get", "/api/download/"+"username="+USER_NAME+"&"+fileName, true);
 		req.onreadystatechange = function() {
     		if (req.readyState == 4) {
-        		window.location = document.URL + "/api/download/" + fileName;
+        		window.location = document.URL + "/api/download/"+"username="+USER_NAME+"&"+fileName;
    			}
 		}
 		req.send();
