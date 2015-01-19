@@ -11,7 +11,7 @@ window.onload = function() {
 		formData.append("file", file, file.name);
 		
 		var req = new XMLHttpRequest();
-		req.open('post', "/api/post/upload/", true);
+		req.open('post', "/api/post/upload/"+USER_NAME, true);
 		req.onreadystatechange = function() {
 			if (req.readyState == 4) {
 				var dirInfo = JSON.parse(req.responseText);
@@ -35,7 +35,9 @@ window.onload = function() {
 						alert(resp[1]);
 					} else if (resp[0] == "success") {
 						var dirInfo = JSON.parse(resp[1]);
-						updateTable(dirInfo);
+						if (dirInfo.Files != null) {
+							updateTable(dirInfo);
+						}
 						USER_NAME = username;
 					}
 	   			}

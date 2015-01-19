@@ -23,13 +23,15 @@ const (
 	UPLOAD_PREFIX   = "upload/"
 	LOGIN_PREFIX    = "login/"
 	SIGNUP_PREFIX   = "signup/"
-	PORT            = 8080
+
+	USER_DIRECTORY_PREFIX = "user-"
+	PORT                  = 8080
 )
 
 var (
-	ROOT_DIR     string = "root"
-	LOGGED_USERS []user
-	USERS        []user
+	ROOT_DIR        string = "root"
+	USER_LOGIN_DATA        = make(map[string]bool)
+	USERS           []user
 )
 
 /* --- types --- */
@@ -84,17 +86,21 @@ func downloadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
+	username := strings.Replace(r.URL.String(), API_PREFIX+POST_PREFIX+UPLOAD_PREFIX, "", 1)
+	if !hasAccess(username) {
+		return
+	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
 		defer file.Close()
-		err := uploadFileToServer(file, header)
+		err := uploadFileToServer(file, header, username)
 
 		if err != nil {
 			fmt.Fprintln(w, err.Error())
 		} else {
-			dirInfo, e := readDirectory(ROOT_DIR)
+			dirInfo, e := readDirectory(ROOT_DIR + string(os.PathSeparator) + USER_DIRECTORY_PREFIX + username)
 			if e != nil {
 				fmt.Fprintf(w, e.Error())
 			} else {
@@ -111,6 +117,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.RemoteAddr)
 	body, _ := ioutil.ReadAll(r.Body)
 	var u user
 
@@ -122,7 +129,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if !loginUser(u) {
 		fmt.Fprintf(w, "failed&Invalid username or password")
 	} else {
-		dirInfo, e := readDirectory(ROOT_DIR)
+		dirInfo, e := readDirectory(ROOT_DIR + string(os.PathSeparator) + USER_DIRECTORY_PREFIX + u.Username)
 		if e != nil {
 			fmt.Fprintf(w, "failed&"+e.Error())
 		} else {
@@ -145,10 +152,11 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err.Error())
 	}
 
-	e := signupUser(newUser)
-	if e != nil {
-		fmt.Fprintf(w, e.Error())
+	err = signupUser(newUser)
+	if err != nil {
+		fmt.Fprintf(w, err.Error())
 	}
+	os.Mkdir(ROOT_DIR+string(os.PathSeparator)+USER_DIRECTORY_PREFIX+newUser.Username, 0777)
 }
 
 func delHandler(w http.ResponseWriter, r *http.Request) {
@@ -172,9 +180,9 @@ func delHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func uploadFileToServer(file multipart.File, header *multipart.FileHeader) (err error) {
-	os.Mkdir(ROOT_DIR, 0777)
-	out, err := os.Create(ROOT_DIR + string(os.PathSeparator) + header.Filename)
+func uploadFileToServer(file multipart.File, header *multipart.FileHeader, username string) (err error) {
+	userdir := ROOT_DIR + string(os.PathSeparator) + USER_DIRECTORY_PREFIX + username
+	out, err := os.Create(userdir + string(os.PathSeparator) + header.Filename)
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -219,12 +227,7 @@ func readDirectory(dirName string) (*dirInfo, error) {
 }
 
 func hasAccess(username string) bool {
-	for _, user := range LOGGED_USERS {
-		if user.Username == username {
-			return true
-		}
-	}
-	return false
+	return USER_LOGIN_DATA[username]
 }
 
 func loginUser(u user) bool {
@@ -235,16 +238,7 @@ func loginUser(u user) bool {
 	}
 
 	if user.Password == u.Password {
-		// prevent duplication
-		var userLogged bool = false
-		for _, user := range LOGGED_USERS {
-			if user.Username == user.Username {
-				userLogged = true
-			}
-		}
-		if !userLogged {
-			LOGGED_USERS = append(LOGGED_USERS, user)
-		}
+		USER_LOGIN_DATA[user.Username] = true
 		return true
 	}
 
@@ -272,7 +266,7 @@ func signupUser(newUser user) error {
 		return err
 	}
 	configFile := loadConfiguration()
-	newUsersArray := append(configFile.Users, newUser)
+	newUsersArray := append(USERS, newUser)
 	configFile.Users = newUsersArray
 
 	jsonConfiguration, err := json.Marshal(configFile)
@@ -280,7 +274,9 @@ func signupUser(newUser user) error {
 		log.Fatal(err.Error())
 	}
 	ioutil.WriteFile("config.json", jsonConfiguration, 0777)
+
 	USERS = newUsersArray
+	USER_LOGIN_DATA[newUser.Username] = false
 	return nil
 }
 
@@ -310,6 +306,12 @@ func applyConfiguration(config configuration) {
 	ROOT_DIR = config.RootDir
 }
 
+func initLoginData(users []user) {
+	for _, user := range users {
+		USER_LOGIN_DATA[user.Username] = false
+	}
+}
+
 func initServer() http.Handler {
 	server := pat.New()
 	server.Get(API_PREFIX+DOWNLOAD_PREFIX, http.HandlerFunc(downloadHandler))
@@ -330,6 +332,7 @@ func main() {
 	configFile := loadConfiguration()
 	configuration := configFile.Config
 	USERS = configFile.Users
+	initLoginData(USERS)
 	applyConfiguration(configuration)
 
 	// host client
