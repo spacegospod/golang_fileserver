@@ -1,6 +1,24 @@
 window.onload = function() {
 	var USER_NAME = "";
 	
+	(function requestHomePage() {
+		var req = new XMLHttpRequest();
+        req.open("get", "/api/get/home/", true);
+		req.onreadystatechange = function() {
+    		if (req.readyState == 4) {
+        		try {
+					var pageData = req.responseText.split("&");
+					USER_NAME = pageData[0];
+					var dirInfo = JSON.parse(pageData[1]);
+					updateTable(dirInfo);
+				} catch (e) {
+					// do nothing
+				}
+   			}
+		}
+		req.send();
+	})();
+	
 	var uploadForm = document.getElementById('uploadForm');
 	uploadForm.addEventListener("submit", function(e) {
 		e.preventDefault();
@@ -14,8 +32,12 @@ window.onload = function() {
 		req.open('post', "/api/post/upload/"+USER_NAME, true);
 		req.onreadystatechange = function() {
 			if (req.readyState == 4) {
-				var dirInfo = JSON.parse(req.responseText);
-				updateTable(dirInfo);
+				try {
+					var dirInfo = JSON.parse(req.responseText);
+					updateTable(dirInfo);
+				} catch (e) {
+					alert(req.responseText);
+				}
 			}
 		}
 		
@@ -30,8 +52,12 @@ window.onload = function() {
 		req.open('post', "/api/post/createdir/"+USER_NAME, true);
 		req.onreadystatechange = function() {
 			if (req.readyState == 4) {
-				var dirInfo = JSON.parse(req.responseText);
-				updateTable(dirInfo);
+				try {
+					var dirInfo = JSON.parse(req.responseText);
+					updateTable(dirInfo);
+				} catch (e) {
+					alert(req.responseText);
+				}
 			}
 		}
 
@@ -50,9 +76,13 @@ window.onload = function() {
 					if (resp[0] == "failed") {
 						alert(resp[1]);
 					} else if (resp[0] == "success") {
-						var dirInfo = JSON.parse(resp[1]);
-						updateTable(dirInfo);
-						USER_NAME = username;
+						try {
+							var dirInfo = JSON.parse(resp[1]);
+							USER_NAME = username;
+							updateTable(dirInfo);
+						} catch (e) {
+							alert(req.responseText);
+						}
 					}
 	   			}
 			}
@@ -76,10 +106,10 @@ window.onload = function() {
 	function downloadHandler(e) {
 		var fileName = e.target.parentNode.parentNode.childNodes[0].childNodes[0].wholeText;
 		var req = new XMLHttpRequest();
-        req.open("get", "/api/download/"+"username="+USER_NAME+"&"+fileName, true);
+        req.open("get", "/api/get/download/"+USER_NAME+"&"+fileName, true);
 		req.onreadystatechange = function() {
     		if (req.readyState == 4) {
-        		window.location = document.URL + "/api/download/"+"username="+USER_NAME+"&"+fileName;
+        		window.location = document.URL + "/api/get/download/"+USER_NAME+"&"+fileName;
    			}
 		}
 		req.send();
@@ -91,8 +121,12 @@ window.onload = function() {
         req.open("delete", "/api/delete/"+USER_NAME+"&"+itemName, true);
 		req.onreadystatechange = function() {
 			if (req.readyState == 4) {
-				var dirInfo = JSON.parse(req.responseText);
-				updateTable(dirInfo);
+				try {
+					var dirInfo = JSON.parse(req.responseText);
+					updateTable(dirInfo);
+				} catch (e) {
+					alert(req.responseText);
+				}
 			}
 		}
 		req.send();
@@ -104,8 +138,12 @@ window.onload = function() {
         req.open("post", "/api/post/navigation/fwd&"+USER_NAME+"&"+folderName, true);
 		req.onreadystatechange = function() {
 			if (req.readyState == 4) {
-				var dirInfo = JSON.parse(req.responseText);
-				updateTable(dirInfo);
+				try {
+					var dirInfo = JSON.parse(req.responseText);
+					updateTable(dirInfo);
+				} catch (e) {
+					alert(req.responseText);
+				}
 			}
 		}
 		req.send();
@@ -116,8 +154,12 @@ window.onload = function() {
         req.open("post", "/api/post/navigation/back&"+USER_NAME+"&", true);
 		req.onreadystatechange = function() {
 			if (req.readyState == 4) {
-				var dirInfo = JSON.parse(req.responseText);
-				updateTable(dirInfo);
+				try {
+					var dirInfo = JSON.parse(req.responseText);
+					updateTable(dirInfo);
+				} catch (e) {
+					alert(req.responseText);
+				}
 			}
 		}
 		req.send();
