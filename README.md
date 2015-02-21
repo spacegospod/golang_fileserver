@@ -1,5 +1,4 @@
-# golang_fileserver - A simple per-user, remote file structure manager that uses an HTTP API. Includes
-a Javascript client to demonstrate the functionality.
+# golang_fileserver - A simple per-user, remote file structure manager that uses an HTTP API. Includesa Javascript client to demonstrate the functionality.
 
 ## INSTALL
 
