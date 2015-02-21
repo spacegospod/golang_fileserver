@@ -340,6 +340,9 @@ func navigateBack(username string) (string, error) {
 	newDirPath := strings.Replace(currentDirPath, string(os.PathSeparator)+pathEntries[len(pathEntries)-1], "", 1)
 
 	jsonDirInfo, e := generateDirectoryInfo(newDirPath)
+	if e == nil {
+		USER_DIRS[username] = newDirPath
+	}
 
 	return jsonDirInfo, e
 }
